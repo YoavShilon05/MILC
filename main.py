@@ -2,8 +2,8 @@ import paramiko
 from scp import SCPClient
 import os, os.path
 from distutils.dir_util import copy_tree, remove_tree
-from shutil import copyfile
-
+from shutil import copyfile, copytree
+import time
 import configparser
 
 import sys
@@ -46,10 +46,24 @@ def connect():
 
 def backup():
     source_folder = root
-    destination_folder = f"{root}/.assi-backup"
+    destination_folder = f"{root}\\.assi-backup"
     os.system("rmdir " + destination_folder.replace('/', '\\') + " /s /q")
+    os.mkdir(destination_folder)
+    # time.sleep(5)
+    files = os.listdir(root)
 
-    copy_tree(source_folder, destination_folder)
+    for f in files:
+        if f != ".assi-backup":
+            path = root.replace('/', '\\') + f"\\{f}"
+            if os.path.isfile(path):
+                copyfile(path, destination_folder + f"\\{f}")
+            elif os.path.isdir(path):
+                try:
+                    copytree(path, destination_folder + f"\\{f}")
+                except FileExistsError:
+                    copy_tree(path, destination_folder + f"\\{f}")
+
+    # copy_tree(source_folder, destination_folder)
                     # ignore=lambda src, names : filter(lambda name : not name.startswith('.'), names))
 
 def send(dir : str):
@@ -130,6 +144,9 @@ if __name__ == "__main__":
     # startup - recv, startup
     # recv - recv
     # tray - run MILC in tray
+
+    with open("C:\MILC\output.txt", 'w') as f:
+        f.write(str(sys.argv))
 
     match (sys.argv[1]):
         case "init":
