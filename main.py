@@ -91,7 +91,7 @@ def recv(startup=False):
             if os.path.isfile(path):
                 os.system(f"del {path}")
             elif os.path.isdir(path):
-                os.system(f"rmdir {path} /s /q")
+                os.system(f"rmdir /S /Q \"{path}\"")
 
 
 
