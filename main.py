@@ -1,5 +1,6 @@
 import shutil
 import threading
+import winreg
 
 import paramiko
 from scp import SCPClient
@@ -147,6 +148,23 @@ def run_tray():
 
     icon.run()
 
+def update_users():
+    def add(path, u, arg='%1'):
+        with (winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, rf"{path}\shell\MILCTo\shell\SendTo{u}")) as key:
+            winreg.SetValue(key, "", winreg.REG_SZ, f"Send to {u}")
+            winreg.SetValueEx(key, "Icon", None, winreg.REG_EXPAND_SZ, rf"%appdata%\MILC\MILC.ico")
+        with (winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, rf"{path}\shell\MILCTo\shell\SendTo{u}\command")) as key:
+            winreg.SetValueEx(key, "", None, winreg.REG_EXPAND_SZ, f'%appdata%\MILC\MILC.exe "sendto" "{arg}" "{u}"')
+
+    _, stdout, _ = ssh.exec_command("ls ~/assi-pkg/")
+    for u in stdout.read().split(b'\n'):
+        u = u.decode()
+        if u == '' or u == username: continue
+        add("*", u)
+        add("Directory", u)
+        add("Directory\\Background", u, '%w')
+
+
 if __name__ == "__main__":
     # expected args -
     # init - connection
@@ -168,7 +186,9 @@ if __name__ == "__main__":
         case "sendto":
             with (Client(username, scp, ssh, True)) as client:
                 client.send_file(sys.argv[2], sys.argv[3])
+        case "update-users":
+            update_users()
         case _:
             raise ValueError("Beware! The Value entered for the above argument while running this very program has resulted "
-                            "in a fatal error! please take the nessecary steps to make sure this type of argument won't be "
+                            "in a fatal error! please take the necessary steps to make sure this type of argument won't be "
                             "passed to this program any more.")
