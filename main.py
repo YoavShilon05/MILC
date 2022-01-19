@@ -1,9 +1,12 @@
+import shutil
+import threading
+
 import paramiko
 from scp import SCPClient
 import os, os.path
 from distutils.dir_util import copy_tree, remove_tree
-from shutil import copyfile, copytree
-import time
+from shutil import copyfile
+
 import configparser
 
 import sys
@@ -14,6 +17,8 @@ import tkinter.messagebox
 from PIL import Image
 import pystray
 from pystray import MenuItem as Item
+
+from AssiClient import Client
 
 tk = tkinter.Tk()
 tk.withdraw()
@@ -35,7 +40,7 @@ ssh.connect(ip, 22, username=ssh_username, password=ssh_password)
 scp = SCPClient(ssh.get_transport())
 
 
-root = config["Local"]["Root"]
+root = os.path.normpath(config["Local"]["Root"])
 garbage = config["Remote"]["GarbageDestination"]
 username = config["Remote"]["Username"]
 
@@ -46,28 +51,13 @@ def connect():
 
 def backup():
     source_folder = root
-    destination_folder = f"{root}\\.assi-backup"
+    destination_folder = f"{root}/.assi-backup"
     os.system("rmdir " + destination_folder.replace('/', '\\') + " /s /q")
-    os.mkdir(destination_folder)
-    # time.sleep(5)
-    files = os.listdir(root)
 
-    for f in files:
-        if f != ".assi-backup":
-            path = root.replace('/', '\\') + f"\\{f}"
-            if os.path.isfile(path):
-                copyfile(path, destination_folder + f"\\{f}")
-            elif os.path.isdir(path):
-                try:
-                    copytree(path, destination_folder + f"\\{f}")
-                except FileExistsError:
-                    copy_tree(path, destination_folder + f"\\{f}")
-
-    # copy_tree(source_folder, destination_folder)
-                    # ignore=lambda src, names : filter(lambda name : not name.startswith('.'), names))
+    shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
 
 def send(dir : str):
-    if dir not in root:
+    if os.path.normpath(dir) not in root:
         if os.path.isfile(dir):
             file = os.path.basename(dir)
             copyfile(dir, root + garbage + "/" + file)
@@ -105,7 +95,7 @@ def recv(startup=False):
             if os.path.isfile(path):
                 os.system(f"del {path}")
             elif os.path.isdir(path):
-                os.system(f"rmdir /S /Q \"{path}\"")
+                os.system(f"rmdir {path} /s /q")
 
 
 
@@ -118,6 +108,22 @@ def recv(startup=False):
 def run_tray():
     recv(True)
 
+    client = Client(username, scp, ssh)
+
+    def download_files():
+        for f in client.receive_files():
+            dst = f"{root}/assi-payload/{f}"
+            if os.path.isdir(dst):
+                remove_tree(dst)
+            elif os.path.isfile(dst):
+                os.remove(dst)
+
+            scp.get(f"{client.HOME}/{username}/assi-payload/{f}".encode(), dst, True, True)
+
+        client.__exit__(None, None, None)
+
+    threading.Thread(target=download_files).start()
+
     def on_send(*args):
         send(root)
 
@@ -127,12 +133,16 @@ def run_tray():
     def on_leave(icon, *args):
         icon.stop()
 
+    def settings(*args):
+        os.system("start %appdata%\\MILC\\settings.ini")
+
     home = os.path.expandvars("%appdata%/MILC/")
 
     # name, img, hovertxt, menu
     icon = pystray.Icon("MILC", Image.open(home + "MILC.ico"), "Hi mom, please press this icon to open up the options menu <3",
                         pystray.Menu(Item("Send root folder", on_send, default=True),
                         Item("Update root folder", on_recv),
+                        Item("Settings", settings),
                         Item("Leave Exit MILC", on_leave)))
 
     icon.run()
@@ -143,10 +153,6 @@ if __name__ == "__main__":
     # send, dir - send
     # startup - recv, startup
     # recv - recv
-    # tray - run MILC in tray
-
-    with open("C:\MILC\output.txt", 'w') as f:
-        f.write(str(sys.argv))
 
     match (sys.argv[1]):
         case "init":
@@ -159,6 +165,9 @@ if __name__ == "__main__":
             recv()
         case "tray":
             run_tray()
+        case "sendto":
+            with (Client(username, scp, ssh, True)) as client:
+                client.send_file(sys.argv[2], sys.argv[3])
         case _:
             raise ValueError("Beware! The Value entered for the above argument while running this very program has resulted "
                             "in a fatal error! please take the nessecary steps to make sure this type of argument won't be "

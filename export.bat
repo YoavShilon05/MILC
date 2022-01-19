@@ -1,1 +1,1 @@
-pyinstaller --onefile --windowed --icon=MILC.ico main.py
+pyinstaller --onefile --windowed --icon=MILC.ico --name MILC.exe main.py
