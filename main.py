@@ -3,6 +3,7 @@ import threading
 import winreg
 
 import paramiko
+from plyer import notification
 from scp import SCPClient
 import os, os.path
 from distutils.dir_util import copy_tree, remove_tree
@@ -120,6 +121,7 @@ def run_tray():
                 os.remove(dst)
 
             scp.get(f"{client.HOME}/{username}/assi-payload/{f}".encode(), dst, True, True)
+            notification.notify(title="MILC", message=f'Received new file "{f}"', app_icon=f"{home}/MILC.ico")
 
         client.__exit__(None, None, None)
 
