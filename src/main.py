@@ -17,9 +17,9 @@ if __name__ == "__main__":
         case "send":
             connection.send(sys.argv[2].replace("\\\\", "/").replace("\\", "/"))
         case "startup":
-            connection.recv(True)
+            connection.receive(True)
         case "recv":
-            connection.recv()
+            connection.receive()
         case "tray":
             tray = Tray.Tray(connection)
             tray.run_tray()

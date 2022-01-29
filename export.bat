@@ -1,1 +1,1 @@
-pyinstaller --onefile --windowed --icon=MILC.ico --name MILC.exe main.py
+@pyinstaller --onefile --windowed --icon=MILC.ico --name MILC.exe --hidden-import plyer.platforms.win.notification src/main.py

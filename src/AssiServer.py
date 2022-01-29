@@ -14,10 +14,11 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
 server.listen()
 
-with open("~/assi-pkg/projects.txt") as f:
+with open("/home/assi/assi-pkg/projects.txt") as f:
     folders = f.read().split("\n")
     projects = {}
     for f in folders:
+        if f == "": continue
         split = f.split(":")
         projectname = split[0]
         users = split[1].split(',')
@@ -25,12 +26,16 @@ with open("~/assi-pkg/projects.txt") as f:
 
 
 def on_sendto(conn: socket.socket):
-    target, file = pickle.loads(recv(conn))
-    if target in projects.keys():
-        for name in projects[target]:
-            send(NAMES[name], file.encode())
+    msg = recv(conn)
+    if msg == "!stop":
+        send(conn, b"!stop")
     else:
-        send(NAMES[target], file.encode())
+        target, file = pickle.loads(msg)
+        if target in projects.keys():
+            for name in projects[target]:
+                send(NAMES[name], file.encode())
+        else:
+            send(NAMES[target], file.encode())
 
 while True:
     client, client_ip = server.accept()

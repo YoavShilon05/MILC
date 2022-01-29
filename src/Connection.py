@@ -21,6 +21,15 @@ class Connection:
         self.ssh.exec_command(f"mkdir -p {remote}")
 
     def update_users(self):
+        def delete_subkeys(key0, current_key):
+            # stolen from https://stackoverflow.com/questions/38205784/python-how-to-delete-registry-key-and-subkeys-from-hklm-getting-error-5
+            with (winreg.OpenKey(key0, current_key, 0, winreg.KEY_ALL_ACCESS)) as key:
+                info_key = winreg.QueryInfoKey(key)
+                for x in range(info_key[0]):
+                    sub_key = winreg.EnumKey(key, 0)
+                    try: winreg.DeleteKey(key, sub_key)
+                    except OSError: delete_subkeys(key0, "\\".join([current_key, sub_key]))
+
         def add(path, u, arg='%1'):
             with (winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, rf"{path}\shell\MILCTo\shell\SendTo{u}")) as key:
                 winreg.SetValue(key, "", winreg.REG_SZ, f"Send to {u}")
@@ -29,9 +38,13 @@ class Connection:
                 winreg.SetValueEx(key, "", None, winreg.REG_EXPAND_SZ, f'%appdata%\MILC\MILC.exe "sendto" "{arg}" "{u}"')
 
         _, stdout, _ = self.ssh.exec_command("ls ~/assi-pkg/")
-        for u in stdout.read().split(b'\n'):
-            u = u.decode()
-            if u == '' or u == username: continue
+
+        delete_subkeys(winreg.HKEY_CLASSES_ROOT, r"*\shell\MILCTo\shell")
+        delete_subkeys(winreg.HKEY_CLASSES_ROOT, r"Directory\shell\MILCTo\shell")
+        delete_subkeys(winreg.HKEY_CLASSES_ROOT, r"Directory\Background\shell\MILCTo\shell")
+
+        for u in stdout.read().decode().split('\n'):
+            if u == '' or u == username or u == "projects.txt": continue
             add("*", u)
             add("Directory", u)
             add("Directory\\Background", u, '%w')
@@ -48,7 +61,7 @@ class Connection:
         _, folders, _ = self.ssh.exec_command("ls ~/assi-pkg/")
         _, projects, _ = self.ssh.exec_command("cat ~/assi-pkg/projects.txt")
         project_names = list(map(lambda p : p.split(':')[0], projects.read().decode().split("\n")))
-        return list(filter(lambda f: f not in project_names, folders.read().decode().split("\n")))
+        return list(filter(lambda f: f not in project_names and f != "projects.txt", folders.read().decode().split("\n")))
 
     def send(self, dir : str):
         if os.path.normpath(dir) not in root:
@@ -68,20 +81,10 @@ class Connection:
         files = os.listdir(root)
 
         for f in files:
-            if f.startswith("."): continue
+            if f.startswith(".") or f in self.get_projects(): continue
             self.scp.put(f"{root}/{f}", (remote + "/" + f).encode(), True, True)
 
-    def recv(self, startup=False):
-
-        if not startup:
-            ok = tkinter.messagebox.askokcancel("Warning!",
-                "Pulling mid-session might result in data loss!\nAre you sure you want to proceed?")
-            if not ok:
-                return
-
-        self.backup()
-
-        # clean root
+    def clear_root(self):
         files = os.listdir(root)
         for f in files:
             if not f.startswith("."):
@@ -91,10 +94,49 @@ class Connection:
                 elif os.path.isdir(path):
                     os.system(f"rmdir {path} /s /q")
 
+    def receive_file(self, target: str, file: bytes):
+        src = f"~/assi-pkg/{target}/".encode() + file
+        if file.endswith(b"/"): src += b"."
 
+        folder = f"{root}/assi-payload/{target}"
+        if not os.path.isdir(folder):
+            os.makedirs(folder, exist_ok=True)
 
-        stdin, stdout, stderr = self.ssh.exec_command(f"ls {remote}")
+        dst = f"{root}/assi-payload/{target}/{file.decode()}"
+        if os.path.isdir(dst):
+            remove_tree(dst)
+        elif os.path.isfile(dst):
+            os.remove(dst)
+
+        self.scp.get(src, dst, True, True)
+
+    def get_remote_files(self, folder: str) -> list[str]:
+        _, stdout, _ = self.ssh.exec_command(f"ls -p {folder}")
+        return stdout.read().decode().split('\n')
+
+    def receive_target(self, target):
+        stdin, stdout, stderr = self.ssh.exec_command(f"ls -p ~/assi-pkg/{target}")
         files = stdout.read().split(b"\n")[:-1]
         for f in files:
-            if not f.startswith(b"."):
-                self.scp.get(f"{remote}/".encode() + f, f"{root}/{f.decode()}", True, True)
+            if f.startswith(b"."): continue
+            self.receive_file(target, f)
+
+    def get_projects(self) -> list[str]:
+        _, stdout, _ = self.ssh.exec_command("cat ~/assi-pkg/projects.txt")
+        return [p.split(':')[0] for p in
+                list(filter(lambda l: l != "" and username in l.split(':')[1].split(','),
+                            stdout.read().decode().split('\n')))]
+
+    def receive(self, startup=False):
+        if not startup:
+            ok = tkinter.messagebox.askokcancel("Warning!",
+                "Pulling mid-session might result in data loss!\nAre you sure you want to proceed?")
+            if not ok:
+                return
+
+        self.backup()
+        self.clear_root()
+        self.receive_target(username)
+
+        for p in self.get_projects():
+            self.receive_target(p)

@@ -1,13 +1,12 @@
 import threading
 import tkinter, tkinter.messagebox, tkinter.simpledialog
-import winreg
-from distutils.dir_util import remove_tree
 
 import pystray
 from pystray import MenuItem as Item
 from PIL import Image
 from plyer import notification
 
+import AssiNet
 import Connection
 from Settings import *
 from AssiClient import Client
@@ -16,38 +15,30 @@ _tk = tkinter.Tk()
 _tk.withdraw()
 
 class Tray():
-    def __init__(self, connection : Connection.Connection):
+    def __init__(self, connection: Connection.Connection):
         self.conn = connection
-
         self.client = Client(username, self.conn)
 
     def download_files(self):
-        self.stop_download = False
         for f in self.client.receive_files():
-            if self.stop_download: break
+            if f == "!stop":
+                break
 
-            basename = os.path.basename(f)
-            dst = f"{root}/assi-payload/{basename}"
-            if os.path.isdir(dst):
-                remove_tree(dst)
-            elif os.path.isfile(dst):
-                os.remove(dst)
-
-            self.conn.scp.get(f.encode(), dst, True, True)
-            notification.notify(title="MILC", message=f'Received new file "{basename}"', app_icon=f"{home}/MILC.ico")
+            target = f.split('/')[2]
+            basename = os.path.basename(f.rstrip('/'))
+            self.conn.receive_file(target, basename.encode())
+            notification.notify(title="MILC", message=f'Received new file "{basename}" from {target}', app_icon=f"{home}/MILC.ico")
 
         self.client.__exit__(None, None, None)
 
     def create_project(self):
         name = tkinter.simpledialog.askstring("New Project", "What is the name of the new project?")
-        if name == None:
+        if name is None:
             return
 
-        _, projects, _ = self.conn.ssh.exec_command("cat ~/assi-pkg/projects.txt")
-        _, folders, _ = self.conn.ssh.exec_command("ls ~/assi-pkg")
+        folders = map(lambda f: f.rstrip('/'), self.conn.get_remote_files("~/assi-pkg"))
 
-        if name in map(lambda p: p.split(':')[0],
-                       projects.read().decode().split("\n")) or name in folders.read().decode().split("\n"):
+        if name in folders:
             tkinter.messagebox.showerror("Error", "Invalid project name")
             return
 
@@ -83,22 +74,23 @@ class Tray():
             cancel.pack()
             tk.mainloop()
 
-            if canceled:
-                return
+            if canceled: return
 
-            return list(filter(lambda u: vars[u].get(), vars.keys()))
-
-        if canceled:
-            return
+            return list(filter(lambda u: u not in folders and vars[u].get(), vars.keys()))
 
         users = get_users_prompt()
+        if canceled: return
+        while len(users) <= 1:
+            tkinter.messagebox.showerror("Error", "Cannot create project with less than 2 people.")
+            users = get_users_prompt()
+            if canceled: return
 
         self.conn.ssh.exec_command(f"mkdir ~/assi-pkg/{name}")
         self.conn.ssh.exec_command(f'echo "{name}:{",".join(users)}" >> ~/assi-pkg/projects.txt')
         self.conn.update_users()
 
     def run_tray(self):
-        self.conn.recv(True)
+        self.conn.receive(True)
 
         thread = threading.Thread(target=self.download_files)
         thread.start()
@@ -107,11 +99,11 @@ class Tray():
             self.conn.send(root)
 
         def on_recv(*args):
-            self.conn.recv(False)
+            self.conn.receive(False)
 
         def on_leave(icon, *args):
             icon.stop()
-            self.stop_download = True
+            AssiNet.send(self.client.client, b"!stop")
             thread.join(5)
 
         def settings(*args):
