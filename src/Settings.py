@@ -14,5 +14,7 @@ ssh_password = config["SSH"]["Password"]
 root = os.path.normpath(config["Local"]["Root"])
 garbage = config["Remote"]["GarbageDestination"]
 username = config["Remote"]["Username"]
+localroot = root + f"/{username}"
+payload = "assi-payload"
 
 remote = f"~/assi-pkg/{username}"

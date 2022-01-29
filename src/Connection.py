@@ -51,8 +51,8 @@ class Connection:
 
     @staticmethod
     def backup():
-        source_folder = root
-        destination_folder = f"{root}/.assi-backup"
+        source_folder = localroot
+        destination_folder = f"{localroot}/.assi-backup"
         os.system("rmdir " + destination_folder.replace('/', '\\') + " /s /q")
 
         shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
@@ -64,13 +64,13 @@ class Connection:
         return list(filter(lambda f: f not in project_names and f != "projects.txt", folders.read().decode().split("\n")))
 
     def send(self, dir : str):
-        if os.path.normpath(dir) not in root:
+        if os.path.normpath(dir) not in localroot:
             if os.path.isfile(dir):
                 file = os.path.basename(dir)
-                shutil.copyfile(dir, root + garbage + "/" + file)
+                shutil.copyfile(dir, localroot + "/" if garbage is not "" else "" + garbage + "/" + file)
             elif os.path.isdir(dir):
                 folder = os.path.basename(dir)
-                dst = root + garbage + "/" + folder
+                dst = localroot + garbage + "/" + folder
                 if os.path.isdir(dst):
                     remove_tree(dst)
                 os.mkdir(dst)
@@ -78,31 +78,32 @@ class Connection:
 
         self.ssh.exec_command(f"rm -rf {remote}/*")
 
-        files = os.listdir(root)
+    def send_root(self):
+        files = os.listdir(localroot)
 
         for f in files:
             if f.startswith(".") or f in self.get_projects(): continue
-            self.scp.put(f"{root}/{f}", (remote + "/" + f).encode(), True, True)
+            self.scp.put(f"{localroot}/{f}", (remote + "/" + f).encode(), True, True)
 
     def clear_root(self):
-        files = os.listdir(root)
+        files = os.listdir(localroot)
         for f in files:
             if not f.startswith("."):
-                path = root.replace('/', '\\') + f"\\{f}"
+                path = localroot.replace('/', '\\') + f"\\{f}"
                 if os.path.isfile(path):
                     os.system(f"del {path}")
                 elif os.path.isdir(path):
                     os.system(f"rmdir {path} /s /q")
 
-    def receive_file(self, target: str, file: bytes):
+    def receive_file(self, target: str, file: bytes): #target = projectname/username, target=Yoav
         src = f"~/assi-pkg/{target}/".encode() + file
         if file.endswith(b"/"): src += b"."
 
-        folder = f"{root}/assi-payload/{target}"
+        folder = f"{localroot}/{target}"
         if not os.path.isdir(folder):
             os.makedirs(folder, exist_ok=True)
 
-        dst = f"{root}/assi-payload/{target}/{file.decode()}"
+        dst = f"{folder}/{file.decode()}" if target != username else f"{folder}/{payload}/{file.decode()}"
         if os.path.isdir(dst):
             remove_tree(dst)
         elif os.path.isfile(dst):
@@ -138,5 +139,5 @@ class Connection:
         self.clear_root()
         self.receive_target(username)
 
-        for p in self.get_projects():
-            self.receive_target(p)
+        # for p in self.get_projects():
+        #     self.receive_target(p)

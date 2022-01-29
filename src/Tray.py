@@ -96,7 +96,7 @@ class Tray():
         thread.start()
 
         def on_send(*args):
-            self.conn.send(root)
+            self.conn.send_root()
 
         def on_recv(*args):
             self.conn.receive(False)

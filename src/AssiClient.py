@@ -2,6 +2,7 @@ import os
 import pickle
 from AssiNet import *
 import Connection
+from Settings import *
 
 class Client:
     def __init__(self, username: str, connection: Connection.Connection, sending=False):
@@ -20,16 +21,16 @@ class Client:
 
     def send_file(self, file: str, target: str):
         basename = f"{os.path.basename(file)}"
-        payload = f"{self.HOME}/{target}"
+        dst = f"{self.HOME}/{target}"
         if target not in self.conn.get_projects():
-            payload += f"/assi-payload"
-        path = f"{payload}/{basename}"
-        self.conn.ssh.exec_command(f"mkdir -p {payload}")
+            dst += f"/{payload}"
+        path = f"{dst}/{basename}"
+        self.conn.ssh.exec_command(f"mkdir -p {dst}")
 
         if os.path.isdir(file):
             self.conn.ssh.exec_command(f"rm -rf {path}")
 
-        self.conn.scp.put(file.replace(" ", "_"), path.encode(), True, True)
+        self.conn.scp.put(file, path.encode(), True, True)
 
         send(self.client, pickle.dumps((target, path)))
 
