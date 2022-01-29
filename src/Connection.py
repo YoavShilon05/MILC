@@ -97,7 +97,7 @@ class Connection:
                     os.system(f"rmdir {path} /s /q")
 
     def receive_file(self, target: str, file: bytes, sent=True): #target = projectname/username, target=Yoav
-        p = (payload + '/') if sent else ''
+        p = (payload + '/') if sent and target == username else ''
         src = f"~/assi-pkg/{target}/{p}".encode() + file
         if file.endswith(b"/"): src += b"."
 
@@ -136,6 +136,9 @@ class Connection:
                 "Pulling mid-session might result in data loss!\nAre you sure you want to proceed?")
             if not ok:
                 return
+
+        if not os.path.isdir(localroot):
+            os.makedirs(localroot)
 
         self.backup()
         self.clear_root()
