@@ -27,7 +27,7 @@ class Tray():
             target = f.split('/')[2]
             basename = os.path.basename(f.rstrip('/'))
             self.conn.receive_file(target, basename.encode())
-            notification.notify(title="MILC", message=f'Received new file "{basename}" from {target}', app_icon=f"{home}/MILC.ico")
+            notification.notify(title="MILC", message=f'Received new file "{basename}"', app_icon=f"{home}/MILC.ico")
 
         self.client.__exit__(None, None, None)
 

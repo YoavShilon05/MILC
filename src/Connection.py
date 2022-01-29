@@ -67,7 +67,7 @@ class Connection:
         if os.path.normpath(dir) not in localroot:
             if os.path.isfile(dir):
                 file = os.path.basename(dir)
-                shutil.copyfile(dir, localroot + "/" if garbage is not "" else "" + garbage + "/" + file)
+                shutil.copyfile(dir, localroot + ("/" if garbage != "" else "") + garbage + "/" + file)
             elif os.path.isdir(dir):
                 folder = os.path.basename(dir)
                 dst = localroot + garbage + "/" + folder
@@ -76,9 +76,10 @@ class Connection:
                 os.mkdir(dst)
                 copy_tree(dir, dst)
 
-        self.ssh.exec_command(f"rm -rf {remote}/*")
+        self.send_root()
 
     def send_root(self):
+        self.ssh.exec_command(f"rm -rf {remote}/*")
         files = os.listdir(localroot)
 
         for f in files:
@@ -95,15 +96,15 @@ class Connection:
                 elif os.path.isdir(path):
                     os.system(f"rmdir {path} /s /q")
 
-    def receive_file(self, target: str, file: bytes): #target = projectname/username, target=Yoav
-        src = f"~/assi-pkg/{target}/".encode() + file
+    def receive_file(self, target: str, file: bytes, file_sent=True): #target = projectname/username, target=Yoav
+        src = f"~/assi-pkg/{target}/{(payload + '/') if file_sent else ''}".encode() + file
         if file.endswith(b"/"): src += b"."
 
-        folder = f"{localroot}/{target}"
+        folder = f"{root}/{target}"
         if not os.path.isdir(folder):
             os.makedirs(folder, exist_ok=True)
 
-        dst = f"{folder}/{file.decode()}" if target != username else f"{folder}/{payload}/{file.decode()}"
+        dst = f"{folder}/{(payload + '/') if file_sent else ''}{file.decode()}"
         if os.path.isdir(dst):
             remove_tree(dst)
         elif os.path.isfile(dst):
@@ -115,12 +116,12 @@ class Connection:
         _, stdout, _ = self.ssh.exec_command(f"ls -p {folder}")
         return stdout.read().decode().split('\n')
 
-    def receive_target(self, target):
+    def receive_target(self, target, file_sent=True):
         stdin, stdout, stderr = self.ssh.exec_command(f"ls -p ~/assi-pkg/{target}")
         files = stdout.read().split(b"\n")[:-1]
         for f in files:
             if f.startswith(b"."): continue
-            self.receive_file(target, f)
+            self.receive_file(target, f, file_sent)
 
     def get_projects(self) -> list[str]:
         _, stdout, _ = self.ssh.exec_command("cat ~/assi-pkg/projects.txt")
@@ -137,7 +138,7 @@ class Connection:
 
         self.backup()
         self.clear_root()
-        self.receive_target(username)
+        self.receive_target(username, False)
 
         # for p in self.get_projects():
         #     self.receive_target(p)

@@ -9,7 +9,10 @@ if __name__ == "__main__":
     connection = Connection.Connection()
 
 
-    #TODO: write new comment
+    if len(sys.argv) < 2:
+        raise SyntaxError("Beware! The file you have just ran relies and must be run with an argument parameter. "
+                          "running it without one will surely cause it to fail critically. Please take the necessary "
+                          "steps to make sure such accidents will not take place next time.")
 
     match (sys.argv[1]):
         case "init":
