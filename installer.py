@@ -89,13 +89,11 @@ if __name__ == "__main__":
     create_item("Directory\\Background", "Send folder", "%w")
 
     print("\nAdding MILC to startup...")
-    launch_com = "start /min %appdata%\\MILC\\MILC.exe tray"
-    with open(f"{os.path.expandvars('%appdata%')}\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\MILC-Tray.bat", 'w') as f:
-        f.write('@' + launch_com)
+    os.system(r'schtasks /create /sc ONLOGON /tn MILC /tr "%appdata%\MILC\MILC.exe tray" /rl HIGHEST /f')
 
     print("\nInitializing MILC...")
     os.system(f"{home}\\MILC init")
     os.system(f"{home}\\MILC update-users")
 
     print("\n\nDone! Launching MILC...")
-    os.system(launch_com)
+    os.system("schtasks /run /tn MILC")

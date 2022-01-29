@@ -1,1 +1,1 @@
-@pyinstaller --onefile --icon=MILC.ico --name Installer.exe installer.py
+@pyinstaller --onefile --icon=MILC.ico --name Installer.exe --uac-admin installer.py
