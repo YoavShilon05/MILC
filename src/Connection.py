@@ -96,11 +96,12 @@ class Connection:
                 elif os.path.isdir(path):
                     os.system(f"rmdir {path} /s /q")
 
-    def receive_file(self, target: str, file: bytes): #target = projectname/username, target=Yoav
-        src = f"~/assi-pkg/{target}/".encode() + file
+    def receive_file(self, target: str, file: bytes, sent=True): #target = projectname/username, target=Yoav
+        p = (payload + '/') if sent else ''
+        src = f"~/assi-pkg/{target}/{p}".encode() + file
         if file.endswith(b"/"): src += b"."
 
-        folder = f"{root}/{target}/{(payload + '/') if target == username and file != (payload.encode() + b'/') else ''}"
+        folder = f"{root}/{target}/{p}"
         if not os.path.isdir(folder):
             os.makedirs(folder, exist_ok=True)
 
@@ -121,7 +122,7 @@ class Connection:
         files = stdout.read().split(b"\n")[:-1]
         for f in files:
             if f.startswith(b"."): continue
-            self.receive_file(target, f)
+            self.receive_file(target, f, False)
 
     def get_projects(self) -> list[str]:
         _, stdout, _ = self.ssh.exec_command("cat ~/assi-pkg/projects.txt")
@@ -140,5 +141,5 @@ class Connection:
         self.clear_root()
         self.receive_target(username)
 
-        # for p in self.get_projects():
-        #     self.receive_target(p)
+        for p in self.get_projects():
+            self.receive_target(p)

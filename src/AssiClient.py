@@ -24,7 +24,7 @@ class Client:
         dst = f"{self.HOME}/{target}"
         if target not in self.conn.get_projects():
             dst += f"/{payload}"
-        path = f"{dst}/{basename}"
+        path = f"{dst}/{basename}" if basename != target else f"{dst}/"
         self.conn.ssh.exec_command(f"mkdir -p {dst}")
 
         if os.path.isdir(file):

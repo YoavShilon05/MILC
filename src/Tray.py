@@ -3,6 +3,7 @@ import tkinter, tkinter.messagebox, tkinter.simpledialog
 
 import pystray
 from pystray import MenuItem as Item
+from pystray import Menu
 from PIL import Image
 from plyer import notification
 
@@ -109,12 +110,20 @@ class Tray():
         def settings(*args):
             os.system(f"start {settings_path}")
 
+        def send_project(p: str):
+            self.client.send_file(f"{root}\\{p}", p)
+
+        def construct_projects():
+            for p in self.conn.get_projects():
+                yield Item(p, lambda: send_project(p))
+
         # name, img, hovertxt, menu
         icon = pystray.Icon("MILC", Image.open(f"{home}/MILC.ico"), "Hi mom, please press this icon to open up the options menu <3",
                             pystray.Menu(Item("Send root folder", on_send, default=True),
                             Item("Update root folder", on_recv),
                             Item("Create project", self.create_project),
                             Item("Update users and projects", self.conn.update_users),
+                            Item("Send project", Menu(construct_projects)),
                             Item("Settings", settings),
                             Item("Leave Exit MILC", on_leave)))
 
