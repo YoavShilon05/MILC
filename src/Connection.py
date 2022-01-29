@@ -97,7 +97,7 @@ class Connection:
                     os.system(f"rmdir {path} /s /q")
 
     def receive_file(self, target: str, file: bytes, file_sent=True): #target = projectname/username, target=Yoav
-        file_sent |= target != username
+        file_sent |= target == username
         src = f"~/assi-pkg/{target}/{(payload + '/') if file_sent else ''}".encode() + file
         if file.endswith(b"/"): src += b"."
 
