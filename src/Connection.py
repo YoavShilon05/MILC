@@ -97,14 +97,15 @@ class Connection:
                     os.system(f"rmdir {path} /s /q")
 
     def receive_file(self, target: str, file: bytes, file_sent=True): #target = projectname/username, target=Yoav
+        file_sent |= target != username
         src = f"~/assi-pkg/{target}/{(payload + '/') if file_sent else ''}".encode() + file
         if file.endswith(b"/"): src += b"."
 
-        folder = f"{root}/{target}"
+        folder = f"{root}/{target}/{(payload + '/') if file_sent else ''}"
         if not os.path.isdir(folder):
             os.makedirs(folder, exist_ok=True)
 
-        dst = f"{folder}/{(payload + '/') if file_sent else ''}{file.decode()}"
+        dst = f"{folder}/{file.decode()}"
         if os.path.isdir(dst):
             remove_tree(dst)
         elif os.path.isfile(dst):
